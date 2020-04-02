@@ -1,7 +1,5 @@
 package ru.itmo.java;
 
-import javax.tools.JavaCompiler;
-import java.lang.management.GarbageCollectorMXBean;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -9,7 +7,7 @@ public class HashTable {
 
     class KeyValuePair {
         boolean deleted;
-        Object key;
+        final Object key;
         Object value;
         public KeyValuePair(Object key, Object value) {
             this.key = key;
@@ -31,18 +29,31 @@ public class HashTable {
     int count;
     final float loadFactor;
     int threshold() {
-        return (int)(array.length * loadFactor);
+        return (int) (array.length * loadFactor);
     }
+
+
 
     public HashTable(int size, float loadFactor) {
         array = new KeyValuePair[size];
-        if (loadFactor > 1) {
+        if (loadFactor > 1 || loadFactor <= 0) {
             loadFactor = 0.5f;
         }
         this.loadFactor = loadFactor;
     }
     public HashTable(int size) {
         this(size, 0.5f);
+    }
+
+
+
+    private int GetExpectedIndex(Object key, int arrayLength)
+    {
+        int hash = key.hashCode();
+        if (hash < 0) {
+            hash = -hash;
+        }
+        return hash % arrayLength;
     }
 
     public Object put(Object key, Object value) {
@@ -53,33 +64,30 @@ public class HashTable {
             extend();
         }
 
-        KeyValuePair kp = new KeyValuePair(key, value);
-        int h = key.hashCode();
-        if (h < 0) {
-            h = -h;
-        }
-        int idx = h % array.length;
+        KeyValuePair pair = new KeyValuePair(key, value);
+
+        int index = GetExpectedIndex(key, array.length);
 
         boolean haveKey = get(key) != null;
 
         int i = 0;
-        while (array[idx] != null) {
+        while (array[index] != null) {
             if (haveKey) {
-                if (array[idx].key.equals(key)) {
-                    Object toReturn = array[idx].value;
-                    array[idx] = kp;
+                if (array[index].key.equals(key)) {
+                    Object toReturn = array[index].value;
+                    array[index] = pair;
                     return toReturn;
                 }
             }
-            else if (array[idx].deleted) {
+            else if (array[index].deleted) {
                 break;
             }
             i++;
-            idx += i*i;
-            idx = idx % array.length;
+            index += i*i;
+            index = index % array.length;
         }
 
-        array[idx] = kp;
+        array[index] = pair;
         count++;
         return null;
     }
@@ -89,20 +97,16 @@ public class HashTable {
             return null;
         }
 
-        int h = key.hashCode();
-        if (h < 0) {
-            h = -h;
-        }
-        int idx = h % array.length;
+        int index = GetExpectedIndex(key, array.length);
 
         int i = 0;
-        while (array[idx] != null && i < count) {
-            if (array[idx].key.equals(key) && !array[idx].deleted) {
-                return array[idx].value;
+        while (array[index] != null && i < count) {
+            if (array[index].key.equals(key) && !array[index].deleted) {
+                return array[index].value;
             }
             i++;
-            idx += i*i;
-            idx = idx % array.length;
+            index += i*i;
+            index = index % array.length;
         }
 
         return null;
@@ -113,32 +117,28 @@ public class HashTable {
             return null;
         }
 
-        int h = key.hashCode();
-        if (h < 0) {
-            h = -h;
-        }
-        int idx = h % array.length;
+        int index = GetExpectedIndex(key, array.length);
 
         int i = 0;
-        while (array[idx] != null) {
-            if (!array[idx].deleted && array[idx].key.equals(key)) {
+        while (array[index] != null) {
+            if (!array[index].deleted && array[index].key.equals(key)) {
                 break;
             }
             if (i >= count) {
                 return null;
             }
             i++;
-            idx += i*i;
-            idx = idx % array.length;
+            index += i*i;
+            index = index % array.length;
         }
 
-        if (array[idx] == null) {
+        if (array[index] == null) {
             return null;
         }
 
-        array[idx].deleted = true;
+        array[index].deleted = true;
         count--;
-        return array[idx].value;
+        return array[index].value;
     }
 
     public int size() {
@@ -147,27 +147,22 @@ public class HashTable {
 
     void extend() {
         KeyValuePair[] newArray = new KeyValuePair[array.length * 2];
-        for (KeyValuePair kp:
+        for (KeyValuePair pair:
              array) {
 
-            if (kp == null) {
+            if (pair == null) {
                 continue;
             }
 
-            int h = kp.key.hashCode();
-            if (h < 0) {
-                h = -h;
-            }
-
-            int idx = h % newArray.length;
+            int index = GetExpectedIndex(pair.key, newArray.length);
 
             int i = 0;
-            while (newArray[idx] != null) {
+            while (newArray[index] != null) {
                 i++;
-                idx += i*i;
-                idx = idx % newArray.length;
+                index += i*i;
+                index = index % newArray.length;
             }
-            newArray[idx] = kp;
+            newArray[index] = pair;
         }
         Arrays.fill(array, null);
         array = newArray;
